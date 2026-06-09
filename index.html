@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Farma — Dashboard Cotizaciones</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a1628;
+    --navy-mid: #112240;
+    --navy-light: #1a3a6b;
+    --orange: #f97316;
+    --orange-light: #fb923c;
+    --orange-dark: #ea580c;
+    --white: #ffffff;
+    --gray-light: #f1f5f9;
+    --gray-mid: #94a3b8;
+    --success: #22c55e;
+    --warning: #eab308;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    min-height: 100vh;
+  }
+  h1, h2, h3, .brand { font-family: 'Barlow Condensed', sans-serif; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--navy-mid); }
+  ::-webkit-scrollbar-thumb { background: var(--navy-light); border-radius: 3px; }
+
+  /* Sidebar */
+  #sidebar { background: var(--navy-mid); border-right: 1px solid rgba(255,255,255,0.07); }
+  .nav-item { transition: all 0.2s; border-left: 3px solid transparent; }
+  .nav-item:hover, .nav-item.active { background: rgba(249,115,22,0.12); border-left-color: var(--orange); color: var(--orange-light); }
+
+  /* Cards */
+  .card {
+    background: var(--navy-mid);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    transition: box-shadow 0.2s;
+  }
+  .card:hover { box-shadow: 0 4px 24px rgba(249,115,22,0.08); }
+
+  .kpi-card {
+    background: linear-gradient(135deg, var(--navy-light) 0%, var(--navy-mid) 100%);
+    border: 1px solid rgba(249,115,22,0.2);
+    border-radius: 14px;
+  }
+
+  /* Badge */
+  .badge-urgente { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+  .badge-ok { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+  .badge-pendiente { background: rgba(234,179,8,0.15); color: #fde047; border: 1px solid rgba(234,179,8,0.3); }
+  .badge-sin-actividad { background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+
+  /* Table */
+  .tbl-row { border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s; }
+  .tbl-row:hover { background: rgba(249,115,22,0.06); }
+
+  /* Filter select */
+  select, input {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: white;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  select:focus, input:focus { border-color: var(--orange); }
+  select option { background: var(--navy-mid); color: white; }
+
+  /* Pulse */
+  @keyframes pulse-orange {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(249,115,22,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(249,115,22,0); }
+  }
+  .pulse { animation: pulse-orange 2s infinite; }
+
+  /* Tab */
+  .tab-btn { transition: all 0.2s; border-bottom: 2px solid transparent; }
+  .tab-btn.active { border-bottom-color: var(--orange); color: var(--orange-light); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Chart containers */
+  .chart-wrap { position: relative; }
+
+  /* Progress bar */
+  .progress-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--orange-dark), var(--orange-light)); transition: width 0.6s ease; }
+
+  /* Whatsapp btn */
+  .wsp-btn { background: #25D366; border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: white; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; transition: opacity 0.2s; }
+  .wsp-btn:hover { opacity: 0.85; }
+
+  /* Modal */
+  #modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; backdrop-filter: blur(4px); }
+  #modal { max-height: 90vh; overflow-y: auto; }
+  .month-chip {
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .chip-cotiz { background: rgba(249,115,22,0.15); border: 1px solid rgba(249,115,22,0.3); }
+  .chip-compra { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); }
+  .chip-sin { background: rgba(148,163,184,0.08); border: 1px solid rgba(148,163,184,0.15); }
+
+  /* Ribbon */
+  .urgente-ribbon { position: absolute; top: 0; right: 0; background: var(--danger); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 0 10px 0 8px; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+
+<!-- MODAL DETAIL -->
+<div id="modal-bg" onclick="closeModal(event)">
+  <div class="flex items-center justify-center min-h-screen p-4">
+    <div id="modal" class="card w-full max-w-2xl p-0 relative">
+      <div class="p-6 border-b border-white/10 flex items-start justify-between">
+        <div>
+          <p class="text-orange-400 text-xs font-semibold uppercase tracking-widest mb-1">Detalle de cliente</p>
+          <h2 id="modal-title" class="text-xl font-bold" style="font-family:'Barlow Condensed',sans-serif;"></h2>
+        </div>
+        <button onclick="document.getElementById('modal-bg').style.display='none'" class="text-gray-400 hover:text-white text-2xl leading-none ml-4">&times;</button>
+      </div>
+      <div id="modal-body" class="p-6"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="w-64 flex-shrink-0 flex flex-col h-full overflow-y-auto">
+    <!-- Logo -->
+    <div class="p-6 border-b border-white/07">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg" style="background:linear-gradient(135deg,#f97316,#ea580c);">TF</div>
+        <div>
+          <div class="brand text-xl font-bold text-white leading-none">TRADE FARMA</div>
+          <div class="text-xs text-gray-400 mt-0.5">Panel Comercial</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="p-3 flex-1">
+      <p class="text-xs text-gray-500 uppercase tracking-widest px-3 mb-2 mt-2">Vistas</p>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm cursor-pointer active" onclick="showView('dashboard',this)">
+        <span class="text-base">📊</span> <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm cursor-pointer" onclick="showView('urgentes',this)">
+        <span class="text-base">🔔</span> <span>Urgentes <span id="badge-urgentes" class="ml-auto bg-red-500 text-white text-xs px-1.5 rounded-full"></span></span>
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm cursor-pointer" onclick="showView('clientes',this)">
+        <span class="text-base">🏛️</span> <span>Todos los clientes</span>
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm cursor-pointer" onclick="showView('visitas',this)">
+        <span class="text-base">🗺️</span> <span>Visitas del día</span>
+      </a>
+
+      <p class="text-xs text-gray-500 uppercase tracking-widest px-3 mb-2 mt-5">Filtros rápidos</p>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm cursor-pointer" onclick="filterByStatus('compraron',this)">
+        <span class="w-2 h-2 rounded-full bg-green-400"></span> Solo compraron
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm cursor-pointer" onclick="filterByStatus('no-compraron',this)">
+        <span class="w-2 h-2 rounded-full bg-red-400"></span> No compraron
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm cursor-pointer" onclick="filterByStatus('volver-contactar',this)">
+        <span class="w-2 h-2 rounded-full bg-orange-400"></span> Volver a contactar
+      </a>
+    </nav>
+
+    <!-- Footer -->
+    <div class="p-4 border-t border-white/07">
+      <div class="text-xs text-gray-500 text-center">
+        Actualizado desde Excel<br>
+        <span id="today-date" class="text-orange-400 font-medium"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 overflow-y-auto bg-navy" style="background: linear-gradient(180deg, #0d1e35 0%, #0a1628 100%);">
+
+    <!-- TOPBAR -->
+    <div class="sticky top-0 z-10 px-6 py-4 flex items-center justify-between border-b border-white/07" style="background:rgba(10,22,40,0.9); backdrop-filter: blur(12px);">
+      <div>
+        <h1 id="view-title" class="text-2xl font-bold" style="font-family:'Barlow Condensed',sans-serif;">Dashboard</h1>
+        <p id="view-sub" class="text-gray-400 text-xs mt-0.5">Resumen general de cotizaciones y ventas</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <input type="text" id="search-global" placeholder="🔍  Buscar cliente..." class="w-56" oninput="onSearch(this.value)">
+<!----- ageramaos boton para exportar csv----->
+<input
+  type="file"
+  id="excelFile"
+  accept=".xlsx,.xls"
+  class="text-xs"
+/>
+
+<button
+  onclick="importarExcel()"
+  class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium"
+>
+  📥 Importar Excel
+</button>
+
+<button
+  onclick="generarPDFUrgentes()"
+  class="px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium"
+>
+  📄 Exportar Seguimientos
+</button>
+        <div class="flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 rounded-lg px-3 py-2">
+          <span class="w-2 h-2 rounded-full bg-orange-400 pulse"></span>
+          <span class="text-orange-300 text-xs font-medium" id="urgentes-count">0 urgentes</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEWS -->
+    <div class="p-6">
+
+      <!-- ===== DASHBOARD VIEW ===== -->
+      <div id="view-dashboard" class="tab-panel active">
+
+        <!-- KPI Row -->
+        <div class="grid grid-cols-2 gap-4 mb-6" id="kpi-row" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="kpi-card p-5 relative overflow-hidden">
+            <div class="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Total Clientes</div>
+            <div class="text-4xl font-black" style="font-family:'Barlow Condensed',sans-serif;" id="kpi-total">—</div>
+            <div class="text-gray-400 text-xs mt-1">Municipalidades y comunas</div>
+            <div class="absolute right-4 bottom-4 text-5xl opacity-10">🏛️</div>
+          </div>
+          <div class="kpi-card p-5 relative overflow-hidden">
+            <div class="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Compraron este mes</div>
+            <div class="text-4xl font-black text-green-400" style="font-family:'Barlow Condensed',sans-serif;" id="kpi-compraron">—</div>
+            <div class="mt-2 progress-bar"><div class="progress-fill" id="kpi-compraron-bar" style="width:0%"></div></div>
+            <div class="text-gray-400 text-xs mt-1.5" id="kpi-compraron-pct">del total activo</div>
+            <div class="absolute right-4 bottom-4 text-5xl opacity-10">✅</div>
+          </div>
+          <div class="kpi-card p-5 relative overflow-hidden">
+            <div class="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Cotizaron sin comprar</div>
+            <div class="text-4xl font-black text-yellow-400" style="font-family:'Barlow Condensed',sans-serif;" id="kpi-pendiente">—</div>
+            <div class="mt-2 progress-bar"><div class="progress-fill" style="width:0%; background:linear-gradient(90deg,#ca8a04,#facc15);" id="kpi-pendiente-bar"></div></div>
+            <div class="text-gray-400 text-xs mt-1.5" id="kpi-pendiente-pct">a seguir</div>
+            <div class="absolute right-4 bottom-4 text-5xl opacity-10">📋</div>
+          </div>
+          <div class="kpi-card p-5 relative overflow-hidden" style="border-color:rgba(239,68,68,0.3);">
+            <div class="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Urgentes (+3 días)</div>
+            <div class="text-4xl font-black text-red-400" style="font-family:'Barlow Condensed',sans-serif;" id="kpi-urgentes">—</div>
+            <div class="text-gray-400 text-xs mt-1">Cotizaciones sin respuesta</div>
+            <div class="absolute right-4 bottom-4 text-5xl opacity-10">🚨</div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          <div class="card p-5">
+            <h3 class="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">Cotizaciones vs Compras por Mes</h3>
+            <div class="chart-wrap" style="height:220px;"><canvas id="chart-bar"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">Tasa de Conversión Mensual (%)</h3>
+            <div class="chart-wrap" style="height:220px;"><canvas id="chart-line"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-5">
+            <h3 class="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">Estado mes actual</h3>
+            <div class="chart-wrap" style="height:180px;"><canvas id="chart-donut"></canvas></div>
+            <div id="donut-legend" class="mt-3 space-y-1.5"></div>
+          </div>
+          <div class="card p-5 col-span-2">
+            <h3 class="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">🔥 Urgentes — Contactar HOY</h3>
+            <div id="urgentes-preview" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+
+        <!-- Seguimiento Volver a Contactar -->
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">📌 Marcados: Volver a Contactar</h3>
+            <span class="text-orange-400 text-sm font-semibold" id="seg-count"></span>
+          </div>
+          <div id="seg-list" class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(280px,1fr));"></div>
+        </div>
+
+      </div>
+
+      <!-- ===== URGENTES VIEW ===== -->
+      <div id="view-urgentes" class="tab-panel">
+        <div class="mb-4 flex items-center gap-3">
+          <select id="filter-urgentes-dias" onchange="renderUrgentes()" class="w-48">
+            <option value="3">+3 días sin respuesta</option>
+            <option value="5">+5 días</option>
+            <option value="7">+7 días</option>
+          </select>
+          <span class="text-gray-400 text-sm">Mostrando cotizaciones recientes sin compra confirmada</span>
+        </div>
+        <div id="urgentes-table" class="card overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-white/10 text-left">
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Cliente</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Última Cotización</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Días transcurridos</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Estado</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="urgentes-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== CLIENTES VIEW ===== -->
+      <div id="view-clientes" class="tab-panel">
+        <div class="flex flex-wrap gap-3 mb-5">
+          <input type="text" id="search-clientes" placeholder="🔍  Buscar..." class="flex-1 min-w-48" oninput="renderClientes()">
+          <select id="filter-mes" onchange="renderClientes()">
+            <option value="">Todos los meses</option>
+            <option value="DICIEMBRE">Diciembre</option>
+            <option value="ENERO">Enero</option>
+            <option value="FEBRERO">Febrero</option>
+            <option value="MARZO">Marzo</option>
+            <option value="ABRIL">Abril</option>
+            <option value="MAYO">Mayo</option>
+            <option value="JUNIO">Junio</option>
+          </select>
+          <select id="filter-estado" onchange="renderClientes()">
+            <option value="">Todos los estados</option>
+            <option value="compro">Compró</option>
+            <option value="cotizo-sin-comprar">Cotizó sin comprar</option>
+            <option value="sin-actividad">Sin actividad</option>
+            <option value="volver-contactar">Volver a contactar</option>
+          </select>
+          <select id="filter-tipo" onchange="renderClientes()">
+            <option value="">Todo tipo</option>
+            <option value="municipalidad">Municipalidades</option>
+            <option value="comuna">Comunas</option>
+            <option value="hospital">Hospitales</option>
+            <option value="otro">Otros</option>
+          </select>
+          <span class="text-gray-400 text-sm self-center" id="filter-count"></span>
+        </div>
+        <div class="card overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-white/10 text-left" style="background:rgba(255,255,255,0.03);">
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Cliente</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Tipo</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Últ. Cotización</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Últ. Compra</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Estado</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider">Seguimiento</th>
+                <th class="px-4 py-3 text-gray-400 text-xs uppercase tracking-wider"></th>
+              </tr>
+            </thead>
+            <tbody id="clientes-tbody"></tbody>
+          </table>
+          <div id="clientes-empty" class="hidden py-16 text-center text-gray-500">No se encontraron clientes con esos filtros</div>
+        </div>
+      </div>
+
+      <!-- ===== VISITAS VIEW ===== -->
+      <div id="view-visitas" class="tab-panel">
+        <div class="mb-4">
+          <div class="flex items-center gap-3 mb-4">
+            <select id="filter-visita-ruta" onchange="renderVisitas()" class="w-64">
+              <option value="">Todas las rutas del día</option>
+            </select>
+            <span class="text-gray-400 text-sm self-center" id="visita-count"></span>
+          </div>
+        </div>
+        <div id="visitas-grid" class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(320px,1fr));"></div>
+      </div>
+
+    </div><!-- /p-6 -->
+  </main>
+</div>
+
+<script>
+// =============================================
+// DATA — extracted from Trade Farma Excel file
+// =============================================
+const RAW_DATA = [{"id": 3, "nombre": "MUNICIPALIDAD DE VILLA DEL TOTORAL", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-23", "compra": "2025-12-29", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-05", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-18", "compra": "2026-02-19", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-05", "compra": "2026-03-05", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-29", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-29", "compra": "2026-05-28", "observaciones": "2DA COTIZACION 27 Y 29"}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 4, "nombre": "COMUNA DE VILLA PARQUE SIQUIMAN", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-10", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": "2026-03-05", "compra": "2026-03-06", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-17", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 5, "nombre": "COMUNA DE VILLA LOS AROMOS", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-13", "compra": "2026-02-18", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-20", "compra": null, "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {"persona": "Soraya Aguilera", "mail": "", "tel": "3547658608 WSP", "direccion": ""}}, {"id": 6, "nombre": "COMUNA DE VILLA LA BOLSA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-23", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-20", "compra": "2026-01-20", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MAYO": {"cotizacion": "2026-05-13", "compra": "2026-05-14", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-03", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 7, "nombre": "COMUNA DE VILLA GUTIERREZ", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-30", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-19", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-10", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-02", "compra": "2026-06-02", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 8, "nombre": "COMUNA DE VILLA DEL PRADO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-10", "compra": null, "observaciones": "mail"}}, "seguimiento": "", "contacto": {"persona": "", "mail": "rentascomunadevilladelprado@gmail.com", "tel": "3517043666 WSP", "direccion": ""}}, {"id": 9, "nombre": "COMUNA DE VILLA CIUDAD AMERICA", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-29", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-19", "compra": "2026-02-23", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-30", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 10, "nombre": "COMUNA DE SIMBOLAR", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-06", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-10", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {"persona": "", "mail": "simbolar@yahoo.com.ar", "tel": "", "direccion": ""}}, {"id": 11, "nombre": "COMUNA DE SAN JOAQUIN", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": null, "observaciones": "compran poco"}}, "seguimiento": "", "contacto": {}}, {"id": 12, "nombre": "COMUNA DE SAN IGNACIO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-30", "compra": "2025-12-30", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": "2026-03-05", "compra": "2026-03-06", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-14", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 13, "nombre": "COMUNA DE LUYABA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {"persona": "Florencia Salomon (coordinadora)", "mail": "", "tel": "3544542992 WSP", "direccion": ""}}, {"id": 14, "nombre": "COMUNA DE PUNTA DEL AGUA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 15, "nombre": "COMUNA DE PLAZA LUXARDO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-29", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "MAYO": {"cotizacion": "2026-05-21", "compra": null, "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-02", "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {"persona": "", "mail": "", "tel": "3564608802 WSP", "direccion": ""}}, {"id": 16, "nombre": "MUNICIPALIDAD DE QUILINO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": "2025-12-22", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-28", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-20", "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-03", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-14", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-12", "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-01", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 17, "nombre": "MUNICIPALIDAD DE MINA CLAVERO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 18, "nombre": "COMUNA DE LOS CONDORES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 19, "nombre": "COMUNA DE LAS RABONAS", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-22", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 20, "nombre": "MUNICIPALIDAD DE MARCOS JUAREZ", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-20", "compra": "2026-01-28", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-24", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-04", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-26", "compra": null, "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 21, "nombre": "COMUNA DE LAS CALLES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 22, "nombre": "COMUNA DE LAS CALERAS", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-23", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-21", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-24", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 23, "nombre": "COMUNA DE LAS ALBAHACAS", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-23", "compra": "2025-12-23", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-15", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-10", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-07", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 24, "nombre": "COMUNA DE LA POSTA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-29", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 25, "nombre": "COMUNA DE LA POBLACION", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-03", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-11", "compra": "2026-02-13", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-30", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-11", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 26, "nombre": "COMUNA DE LAS PLAYAS", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-30", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-26", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 27, "nombre": "COMUNA DE LA PAMPA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 28, "nombre": "COMUNA DE GUASAPAMPA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-30", "compra": "2026-12-30", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-19", "compra": "2026-02-20", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-14", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-02", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 29, "nombre": "COMUNA DE GENERAL FOTHERINGHAM", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "Por el momento no"}}, "seguimiento": "", "contacto": {}}, {"id": 30, "nombre": "MUNICIPALIDAD DE LA CUMBRE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": "2025-12-17", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-20", "compra": "2026-01-21", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-25", "compra": "2026-02-27", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-28", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-21", "compra": "2026-05-26", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 31, "nombre": "COMUNA DE EL MANZANO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-06", "compra": "2026-01-08", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-04", "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-03", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-24", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 32, "nombre": "COMUNA DE CUESTA BLANCA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-05", "compra": "2026-02-10", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-19", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 33, "nombre": "COMUNA DE CRUZ DE CAÑA", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-05", "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-02", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-04", "compra": "2026-02-13", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-13", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-14", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 34, "nombre": "MUNICIPALIDAD DE GENERAL DEHEZA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-23", "compra": null, "observaciones": "Perdimos"}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-02", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": "2026-03-05", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 35, "nombre": "COMUNA DE CONLARA", "meses": {"ENERO": {"cotizacion": "2026-01-16", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-15", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 36, "nombre": "COMUNA DE COLONIA BREMEN", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 37, "nombre": "COMUNA DE CHUCUL", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-15", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-04", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-05", "compra": "2026-03-11", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-24", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-26", "compra": "2026-05-29", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 38, "nombre": "COMUNA DE CHARBONIER", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": "compra cada 3 meses"}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-18", "compra": "2026-02-19", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-13", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 39, "nombre": "COMUNA DE CHALACEA", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-03", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-09", "compra": "2026-01-12", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-02", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-13", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 40, "nombre": "COMUNA DE AVELLANEDA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 41, "nombre": "COMUNA DE VILLA CERRO AZUL", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-29", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-14", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "20/2/05/26", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 42, "nombre": "COMUNA DE VILLA CHACAY", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-16", "compra": "2026-01-19", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 43, "nombre": "COMUNA DE ARROYO DE LOS PATOS", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-15", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 44, "nombre": "MUNICIPALIDAD DE VILLA YACANTO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-04", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": "2026-03-05", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 45, "nombre": "MUNICIPALIDAD DE VILLA VALERIA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-27", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-02", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 46, "nombre": "MUNICIPALIDAD DE VILLA RIO ICHO CRUZ", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-29", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-20", "compra": "2026-01-29", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-09", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-19", "compra": "2026-05-27", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 47, "nombre": "MUNICIPALIDAD DE VILLA PARQUE SANTA ANA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 48, "nombre": "MUNICIPALIDAD DE VILLA HUIDOBRO", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-10", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-09", "compra": "2026-01-16", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 49, "nombre": "MUNICIPALIDAD DE VILLA GRAL. BELGRANO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-30", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 50, "nombre": "MUNICIPALIDAD DE VILLA DE TULUMBA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {"persona": "Eliana Bustamante", "mail": "3521433741 WSP", "tel": "", "direccion": ""}}, {"id": 51, "nombre": "MUNICIPALIDAD DE VILLA CURA BROCHERO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 52, "nombre": "MUNICIPALIDAD DE VILLA ASCASUBI", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 53, "nombre": "MUNICIPALIDAD DE VILLA ALLENDE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-30", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-29", "compra": "2026-01-06", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-26", "compra": "2026-02-02", "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-05", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-28", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-03", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 54, "nombre": "MUNICIPALIDAD DE VICUÑA MACKENNA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-30", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-18", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-23", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-13", "compra": null, "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 55, "nombre": "MUNICIPALIDAD DE VALLE HERMOSO", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-15", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-12", "compra": "2026-01-21", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-05", "compra": "2026-02-12", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-14", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-19", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 56, "nombre": "MUNICIPALIDAD DE UNQUILLO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-12", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-27", "compra": "2026-01-02", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-23", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-09", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-30", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-14", "compra": "2026-05-27", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 57, "nombre": "MUNICIPALIDAD DE TANTI", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-30", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-05", "compra": "2026-01-12", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 58, "nombre": "MUNICIPALIDAD DE TANCACHA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 59, "nombre": "MUNICIPALIDAD DE SINSACATE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-30", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-02", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-05", "compra": "2026-02-11", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 60, "nombre": "MUNICIPALIDAD DE SEBASTIAN EL CANO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-17", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-22", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {"persona": "Andrea Molina", "mail": "", "tel": "3513434126 WSP", "direccion": ""}}, {"id": 61, "nombre": "MUNICIPALIDAD DE SANTIAGO TEMPLE", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-11", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MAYO": {"cotizacion": "2026-05-29", "compra": null, "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-01", "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 62, "nombre": "MUNICIPALIDAD DE SANTA ROSA DE CALAMUCHITA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 63, "nombre": "MUNICIPALIDAD DE DEAN FUNES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": "2025-12-18", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-21", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-19", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-01", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 64, "nombre": "MUNICIPALIDAD DE SANTA CATALINA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 65, "nombre": "MUNICIPALIDAD DE SAN PEDRO NORTE", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-11", "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-19", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-12", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 66, "nombre": "MUNICIPALIDAD DE SAN JOSE DE LA DORMIDA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "Consultar fin de enero"}, "MAYO": {"cotizacion": "2026-05-27", "compra": null, "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-01", "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 67, "nombre": "MUNICIPALIDAD DE SAN FRANCISCO", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-17", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 68, "nombre": "MUNICIPALIDAD DE SAN BASILIO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-10", "compra": "2026-02-11", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 69, "nombre": "MUNICIPALIDAD DE SAN ANTONIO DE ARREDONDO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": "consultar enero"}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 70, "nombre": "MUNICIPALIDAD DE CRUZ DEL EJE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-10", "compra": "2026-02-18", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-30", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-22", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 71, "nombre": "MUNICIPALIDAD DE SAMPACHO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 72, "nombre": "MUNICIPALIDAD DE SALSIPUEDES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-06", "compra": "2026-01-12", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-06", "compra": "2026-02-11", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-10", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-01", "compra": "2026-06-05", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 73, "nombre": "MUNICIPALIDAD DE ALTA GRACIA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": "2025-12-19", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-20", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-20", "compra": "2026-02-03", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-22", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 74, "nombre": "MUNICIPALIDAD DE SAIRA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-24", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 75, "nombre": "MUNICIPALIDAD DE SACANTA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-10", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-08", "compra": "2026-01-21", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 76, "nombre": "MUNICIPALIDAD DE RIO TERCERO", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-03", "compra": "2026-02-06", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-11", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-06", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-22", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-01", "compra": "2026-06-05", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 77, "nombre": "MUNICIPALIDAD DE RIO CUARTO", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 78, "nombre": "COMUNA DE SAN CLEMENTE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": "2025-12-26", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-20", "compra": "2026-01-06", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-09", "compra": "2026-02-05", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-22", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 79, "nombre": "MUNICIPALIDAD DE RIO DE LOS SAUCES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-08", "compra": "2026-01-09", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 80, "nombre": "MUNICIPALIDAD DE RIO CEBALLOS", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-11", "compra": "2025-12-15", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-16", "compra": "2026-01-27", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-10", "compra": "2026-02-23", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-11", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 81, "nombre": "MUNICIPALIDAD DE REDUCCION", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-29", "compra": "2025-12-31", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-09", "compra": "2026-02-09", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-13", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-08", "compra": "2026-05-13", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 82, "nombre": "COMUNA DE CABALANGO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": "2025-12-18", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-27", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-02", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-24", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 83, "nombre": "MUNICIPALIDAD DE QUEBRACHO HERRADO", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-22", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 84, "nombre": "MUNICIPALIDAD DE SALDAN", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": "2025-12-19", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-26", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-18", "compra": "2026-02-03", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-11", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-13", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-02", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 85, "nombre": "MUNICIPALIDAD DE PIQUILLIN", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 86, "nombre": "MUNICIPALIDAD DE PILAR", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": "2025-12-17", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-16", "compra": "2026-01-16", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": "2026-02-25", "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-05", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-28", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 87, "nombre": "MUNICIPALIDAD DE PUEBLO ITALIANO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 88, "nombre": "MUNICIPALIDAD DE ORDOÑEZ", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-11", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 89, "nombre": "MUNICIPALIDAD DE ONCATIVO", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-18", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-12", "compra": "2026-01-12", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-02", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-05", "compra": "2026-03-05", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-13", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 90, "nombre": "MUNICIPALIDAD DE OLIVA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 91, "nombre": "MUNICIPALIDAD DE LA FALDA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-22", "compra": "2025-12-23", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-16", "compra": "2026-01-20", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-05", "compra": "2026-02-09", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-16", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-12", "compra": "2026-05-14", "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-01", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 92, "nombre": "COMUNA DE EL RASTREADOR", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-17", "compra": "2025-12-18", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-06", "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-02", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 93, "nombre": "MUNICIPALIDAD DE NOETINGER", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-30", "compra": "2026-01-05", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-04", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 94, "nombre": "MUNICIPALIDAD DE MORRISON", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-30", "compra": "2025-12-30", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-19", "compra": "2026-02-20", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-28", "compra": "29//05/26", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 95, "nombre": "MUNICIPALIDAD DE MONTE RALO", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-01", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-14", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-03", "compra": "2026-06-04", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 96, "nombre": "MUNICIPALIDAD DE MONTE MAIZ", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-19", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 97, "nombre": "MUNICIPALIDAD DE MONTE LEÑA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 98, "nombre": "MUNICIPALIDAD DE MONTE DE LOS GAUCHOS", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-01", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-27", "compra": "2026-01-27", "observaciones": "Consultar 26 de enero"}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-30", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 99, "nombre": "MUNICIPALIDAD DE MONTE CRISTO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-29", "compra": "2025-12-29", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-14", "compra": "2026-01-16", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-12", "compra": "2026-02-20", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-24", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-21", "compra": "2026-05-27", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 100, "nombre": "MUNICIPALIDAD DE MONTE BUEY", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-04", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-26", "compra": "2026-01-29", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": "2026-02-24", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-10", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-13", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-08", "compra": "2006-05-12", "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 101, "nombre": "MUNICIPALIDAD DE SANTA MARIA DE PUNILLA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-17", "compra": "2025-12-19", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-04", "compra": "2026-02-06", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-09", "compra": "2026-03-10", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-22", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 102, "nombre": "MUNICIPALIDAD DE MENDIOLAZA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-06", "compra": "2026-01-15", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-13", "compra": null, "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-04", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 103, "nombre": "MUNICIPALIDAD DE SAN AGUSTIN", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-17", "compra": "2025-12-22", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-27", "compra": "2026-01-30", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": "2026-03-09", "compra": "2026-03-10", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-17", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-02", "compra": "2026-05-29", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 104, "nombre": "MUNICIPALIDAD DE MATORRALES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "se manejan con prov de la localidad"}}, "seguimiento": "", "contacto": {}}, {"id": 105, "nombre": "MUNICIPALIDAD DE MARULL", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 106, "nombre": "MUNICIPALIDAD DE MATTALDI", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-17", "compra": null, "observaciones": "05-01 consultar por pedido"}, "ENERO": {"cotizacion": null, "compra": "2026-01-07", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-20", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 107, "nombre": "MUNICIPALIDAD DE MANFREDI", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 108, "nombre": "MUNICIPALIDAD DE DESPEÑADEROS", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-17", "compra": "2025-12-17", "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-26", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-18", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-03", "compra": "2026-03-09", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-30", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-19", "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-02", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 109, "nombre": "COMUNA DE PASO VIEJO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-18", "compra": null, "observaciones": "22-12 no respondio"}, "ENERO": {"cotizacion": "2026-01-26", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-04", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 110, "nombre": "MUNICIPALIDAD DE LUQUE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-07", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MAYO": {"cotizacion": "2026-05-12", "compra": "2026-05-14", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 111, "nombre": "MUNICIPALIDAD DE LUCIO V MANSILLA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {"persona": "", "mail": "", "tel": "3516513397 WSP", "direccion": ""}}, {"id": 112, "nombre": "MUNICIPALIDAD DE LOZADA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 113, "nombre": "MUNICIPALIDAD DE LOS SURGENTES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 114, "nombre": "MUNICIPALIDAD DE LOS COCOS", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-09", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "PREGUNTAR EN FEBRERO"}, "MAYO": {"cotizacion": "2026-05-21", "compra": null, "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 115, "nombre": "MUNICIPALIDAD DE LEONES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-04", "compra": "2026-06-05", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 116, "nombre": "MUNICIPALIDAD DE LAS VERTIENTES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-10", "compra": null, "observaciones": "15-12 no respondio"}, "ENERO": {"cotizacion": "2026-01-08", "compra": "2026-01-13", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": "2026-02-24", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 117, "nombre": "MUNICIPALIDAD DE LAS PERDICES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 118, "nombre": "MUNICIPALIDAD DE LAS PEÑAS", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-18", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-07", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-14", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 119, "nombre": "MUNICIPALIDAD DE LAS JUNTURAS", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-05", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "CONSULTAR EL 2/2/26"}, "FEBRERO": {"cotizacion": "2026-02-06", "compra": "2026-02-10", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 120, "nombre": "MUNICIPALIDAD DE LAS ACEQUIAS", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 121, "nombre": "COMUNA DE LAS ISLETILLAS", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-18", "compra": "2025-12-18", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": "2026-03-09", "compra": "2026-03-11", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-14", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 122, "nombre": "MUNICIPALIDAD DE NONO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-18", "compra": "2025-12-19", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-06", "compra": "2026-02-10", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-22", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 123, "nombre": "MUNICIPALIDAD DE LA PAQUITA", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-22", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-30", "compra": "2026-01-12", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-18", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-08", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-14", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-03", "compra": "2026-06-05", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 124, "nombre": "MUNICIPALIDAD DE LA GRANJA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-29", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-22", "compra": "2026-01-05", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-03", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-15", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-21", "compra": "2026-05-29", "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-04", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 125, "nombre": "MUNICIPALIDAD DE MALAGUEÑO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-18", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-06", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-04", "compra": "2026-02-09", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-03", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-07", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 126, "nombre": "MUNICIPALIDAD DE LA PARA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-18", "compra": "2025-12-18", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-26", "compra": "2026-01-26", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-27", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-22", "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-03", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 127, "nombre": "MUNICIPALIDAD DE LA CIUDAD DE VILLA CARLOS PAZ", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-22", "compra": "2025-12-23", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-27", "compra": "2026-01-21", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-18", "compra": "2026-02-19", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-03", "compra": "2026-03-06", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-24", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-27", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 128, "nombre": "MUNICIPALIDAD DE LA CAUTIVA", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-29", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-26", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-02", "compra": "2026-03-04", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-30", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-14", "compra": "2026-05-21", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 129, "nombre": "MUNICIPALIDAD DE LA CALERA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-26", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-19", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 130, "nombre": "MUNICIPALIDAD DE RIO SEGUNDO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-19", "compra": null, "observaciones": "26-12 lo estan revisando"}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 131, "nombre": "MUNICIPALIDAD DE HUINCA RENANCO", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-04", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "Consultar en febrero"}, "FEBRERO": {"cotizacion": "2026-02-09", "compra": "2026-02-10", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 132, "nombre": "MUNICIPALIDAD DE HUERTA GRANDE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-07", "compra": "2026-01-12", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-20", "compra": "2026-02-23", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-28", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 133, "nombre": "MUNICIPALIDAD DE GENERAL ROCA", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-11", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-07", "compra": "2026-01-12", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-11", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-08", "observaciones": null}, "MAYO": {"cotizacion": "2006-05-27", "compra": null, "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-01", "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 134, "nombre": "MUNICIPALIDAD DE GENERAL LEVALLE", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-29", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-08", "compra": "2026-01-12", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-27", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-04", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-14", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-11", "compra": "2026-05-12", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-04", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 135, "nombre": "MUNICIPALIDAD DE PORTEÑA", "meses": {"DICIEMBRE": {"cotizacion": "2026-02-20", "compra": "2025-12-22", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-27", "compra": "2026-01-28", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-09", "compra": "2026-02-04", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-02", "compra": "2026-03-11", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-28", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 136, "nombre": "MUNICIPALIDAD DE GENERAL CABRERA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 137, "nombre": "MUNICIPALIDAD DE FREYRE", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-09", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-06", "compra": "2026-01-08", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-05", "compra": "2026-02-05", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-04", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-17", "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-02", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 138, "nombre": "MUNICIPALIDAD DE OBISPO TREJO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-19", "compra": "2025-12-19", "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-06", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-26", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-06", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-17", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-11", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 139, "nombre": "MUNICIPALIDAD DE EMBALSE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-14", "compra": "2026-01-26", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-05", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 140, "nombre": "MUNICIPALIDAD DE ELENA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-23", "compra": null, "observaciones": "26-12 sin respuesta"}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "por el momento no"}}, "seguimiento": "", "contacto": {}}, {"id": 141, "nombre": "MUNICIPALIDAD DE EL TIO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 142, "nombre": "MUNICIPALIDAD DE EL ARAÑADO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": "no estan comprando"}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "NO ESTAN COMPRANDO"}}, "seguimiento": "", "contacto": {}}, {"id": 143, "nombre": "MUNICIPALIDAD DE MI GRANJA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-19", "compra": "2025-12-22", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-26", "compra": "2026-01-27", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": "2026-02-25", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-09", "compra": "2026-03-11", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-30", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-28", "compra": "2026-05-08", "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-01", "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 144, "nombre": "MUNICIPALIDAD DE LABOULAYE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-19", "compra": "2025-12-23", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-21", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 145, "nombre": "MUNICIPALIDAD DE DALMACIO VELEZ", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 146, "nombre": "MUNICIPALIDAD DE DEVOTO", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-25", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-28", "compra": "2026-01-30", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-27", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-02", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-01", "compra": "2026-06-03", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 147, "nombre": "MUNICIPALIDAD DE JESUS MARIA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-30", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-02", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-16", "compra": "2026-02-18", "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-04", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-30", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-19", "compra": "2026-05-28", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 148, "nombre": "MUNICIPALIDAD DE COSTASACATE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 149, "nombre": "MUNICIPALIDAD DE COSQUIN", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-15", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-09", "compra": "2026-01-14", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-06", "compra": "2026-02-11", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-06", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-14", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-08", "compra": "2026-05-14", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-04", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 150, "nombre": "MUNICIPALIDAD DE CORRALITO", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-25", "compra": null, "observaciones": "consultar en febrero"}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 151, "nombre": "MUNICIPALIDAD DE CORONEL MOLDES", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-22", "compra": "2025-12-23", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-16", "compra": "2026-01-27", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-12", "compra": "2026-02-13", "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-04", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-21", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-04", "compra": "2026-06-03", "observaciones": "2da cotizacion 01 y 04"}}, "seguimiento": "", "contacto": {}}, {"id": 152, "nombre": "MUNICIPALIDAD DE COLONIA PROSPERIDAD", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-14", "compra": "2026-01-14", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": "2026-03-10", "compra": "2026-03-10", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-22", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-20", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 153, "nombre": "MUNICIPALIDAD DE COLONIA CAROYA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-29", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-05", "compra": "2026-01-06", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-02", "compra": "2026-02-03", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-10", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-14", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-02", "compra": "2026-06-04", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 154, "nombre": "MUNICIPALIDAD DE CHIRIBROSTE", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-01", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "Por el momento no"}}, "seguimiento": "", "contacto": {}}, {"id": 155, "nombre": "MUNICIPALIDAD DE CESIRA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-03", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 156, "nombre": "MUNICIPALIDAD DE CANALS", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": "consultar en enero"}, "ENERO": {"cotizacion": "2026-01-20", "compra": "2026-01-27", "observaciones": "20-01 realizaran la coti"}, "FEBRERO": {"cotizacion": "2026-02-24", "compra": "2026-02-26", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-07", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-29", "compra": null, "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-04", "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 157, "nombre": "MUNICIPALIDAD DE CAPILLA DEL MONTE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "Aun no armo presupuesto"}, "MARZO": {"cotizacion": "2026-03-04", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 158, "nombre": "MUNICIPALIDAD DE CAÑADA DE LUQUE", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 159, "nombre": "MUNICIPALIDAD DE BUCHARDO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-12", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "Por el momento no"}}, "seguimiento": "", "contacto": {}}, {"id": 160, "nombre": "MUNICIPALIDAD DE BERROTARAN", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "De vacaciones"}}, "seguimiento": "", "contacto": {}}, {"id": 161, "nombre": "MUNICIPALIDAD DE BERNARO OHIGGINS", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-09", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-26", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-08", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-27", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 162, "nombre": "MUNICIPALIDAD DE BELL VILLE", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-25", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-16", "compra": "2026-01-19", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-24", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 163, "nombre": "MUNICIPALIDAD DE BALNEARIA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-15", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-28", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 164, "nombre": "MUNICIPALIDAD DE BALLESTEROS", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": "Compra poco y a VM"}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 165, "nombre": "MUNICIPALIDAD DE AUSONIA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-09", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 166, "nombre": "MUNICIPALIDAD DE ARROYO ALGODÓN", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 167, "nombre": "MUNICIPALIDAD DE ARROYITO", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-09", "compra": "2025-12-23", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-06", "compra": "2026-01-07", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-04", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 168, "nombre": "MUNICIPALIDAD DE ANISACATE", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-23", "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-06", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-24", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-15", "compra": "2026-05-15", "observaciones": "2DA COMPRA 15 Y 28"}}, "seguimiento": "", "contacto": {}}, {"id": 169, "nombre": "MUNICIPALIDAD DE ESTACION JUAREZ CELMAN", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-19", "compra": "2025-12-22", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-14", "compra": "2026-01-15", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-10", "compra": "2026-02-11", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-11", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-08", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-28", "compra": "2026-05-11", "observaciones": "3DA COTIZAION DEL MES (05, 26 y 28)"}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 170, "nombre": "MUNICIPALIDAD DE ALMAFUERTE", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-15", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-26", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 171, "nombre": "MUNICIPALIDAD DE ALEJANDRO ROCA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-29", "compra": "2025-12-31", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-05", "compra": "2026-02-06", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-02", "compra": "2026-03-06", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 172, "nombre": "MUNICIPALIDAD DE ALCIRA GIGENA", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-30", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-26", "compra": "2026-01-27", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-23", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": "2026-03-03", "compra": "2026-03-04", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-10", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-22", "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-02", "compra": "2026-06-03", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 173, "nombre": "MUNICIPALIDAD DE PAMPAYASTA SUD", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-12", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": "Por el momento no"}, "FEBRERO": {"cotizacion": "2026-02-06", "compra": "2026-02-09", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-06", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 174, "nombre": "COMUNA DE VILLA QUILLINZO", "meses": {"ENERO": {"cotizacion": null, "compra": "2026-01-08", "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-04", "compra": null, "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-01", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 175, "nombre": "COMUNA DE CAÑADA RIO PINTO", "meses": {"FEBRERO": {"cotizacion": null, "compra": "2026-02-18", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 176, "nombre": "MUNICIPALIDAD DE AGUA DE ORO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 177, "nombre": "MUNICIPALIDAD DE VILLA NUEVA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 178, "nombre": "MUNICIPALIDAD DE CORRAL DE BUSTOS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 179, "nombre": "MUNICIPALIDAD DE VILLA GIARDINO", "meses": {"ABRIL": {"cotizacion": null, "compra": "2026-04-28", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-19", "observaciones": null}, "JUNIO": {"cotizacion": null, "compra": "2026-06-01", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 180, "nombre": "MUNICIPALIDAD DE BIALET MASSE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 181, "nombre": "MUNICIPALIDAD DE CRUZ ALTA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 182, "nombre": "MUNICIPALIDAD DE VILLA MARIA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 183, "nombre": "MUNICIPALIDAD DE MALVINAS ARGENTINAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 184, "nombre": "MUNICIPALIDAD DE RIO PRIMERO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 185, "nombre": "MUNICIPALIDAD DE BRINKMAN", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 186, "nombre": "MUNICIPALIDAD DE MORTEROS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 187, "nombre": "MUNICIPALIDAD DE RINCONADA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 188, "nombre": "MUNICIPALIDAD DE CALCHIN", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 189, "nombre": "COMUNA DE COLAZO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 190, "nombre": "MUNICIPALIDAD DE JAMES CRAIK  /  TIO PUJIO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 191, "nombre": "MUNICIPALIDAD DE VILLA TULUMBA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 192, "nombre": "MUNICIPALIDAD DE LA PUERTA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 193, "nombre": "MUNICIPALIDAD DE DIEGO DE ROJAS", "meses": {"FEBRERO": {"cotizacion": null, "compra": "2026-02-02", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-08", "compra": "2026-05-12", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 194, "nombre": "MUNICIPALIDAD DE VILLA FONTANA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 195, "nombre": "MUNICIPALIDAD DE ALTOS DE CHIPION", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 196, "nombre": "MUNICIPALIDAD DE LA FRANCIA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 197, "nombre": "MUNICIPALIDAD DE VILLA CONCEPCION DEL TIO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 198, "nombre": "MUNICIPALIDAD DE RAYO CORTADO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 199, "nombre": "MUNICIPALIDAD DE CANDELRIA NORTE / EUFRASIO LOZA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 200, "nombre": "MUNICIPALIDAD DE LAS ARRIAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 201, "nombre": "MUNICIPALIDAD DE SATURNINO M. LASPIUR", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 202, "nombre": "MUNICIPALIDAD DE LAS VARAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 203, "nombre": "MUNICIPALIDAD DE LAS VARILLAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 204, "nombre": "MUNICIPALIDAD DE POZO DEL MOLLE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 205, "nombre": "MUNICIPALIDAD DE LA PLAYOSA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 206, "nombre": "MUNICIPALIDAD DE HERNANDO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 207, "nombre": "MUNICIPALIDAD DE LA SERRANITA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 208, "nombre": "MUNICIPALIDAD DE POTRERO DE GARAY", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 209, "nombre": "MUNICIPALIDAD DE LOS REARTES", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 210, "nombre": "MUNICIPALIDAD DE VILLA DEL DIQUE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 211, "nombre": "MUNICIPALIDAD DE VILLA RUMIPAL", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 212, "nombre": "MUNICIPALIDAD DE LOS HORNILLOS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 213, "nombre": "MUNICIPALIDAD DE VILLA DE LAS ROSAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 214, "nombre": "MUNICIPALIDAD DE LOS ZORROS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 215, "nombre": "MUNICIPALIDAD DE CARRILOBO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 216, "nombre": "MUNICIPALIDAD DE ARROYO CABRAL", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 217, "nombre": "MUNICIPALIDAD DE LUCA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 218, "nombre": "MUNICIPALIDAD DE LAS TAPIAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 219, "nombre": "MUNICIPALIDAD DE VILLA DOLORES", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 220, "nombre": "MUNICIPALIDAD DE SAN JAVIER Y YACANTO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 221, "nombre": "MUNICIPALIDAD DE LA PAZ", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 222, "nombre": "MUNICIPALIDAD DE LAS BAJADAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 223, "nombre": "MUNICIPALIDAD DE ESPINILLOS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 224, "nombre": "MUNICIPALIDAD DE CORONEL BAIGORRIA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 225, "nombre": "MUNICIPALIDAD DE ALPA CORRAL", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 226, "nombre": "MUNICIPALIDAD DE LA CRUZ", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 227, "nombre": "MUNICIPALIDAD DE VILLA SANTA ROSA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 228, "nombre": "COMUNA DE LOS CHAÑARITOS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 229, "nombre": "MUNICIPALIDAD DE VILLA AMANCAY", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 230, "nombre": "MUNICIPALIDAD DE AMBOY", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 231, "nombre": "MUNICIPALIDAD DE SANTA MONICA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 232, "nombre": "MUNICIPALIDAD DE ALICIA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 233, "nombre": "MUNICIPALIDAD DE EL FORTIN", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 234, "nombre": "MUNICIPALIDAD DE ANA ZUMARAN", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 235, "nombre": "MUNICIPALIDAD DE ALTO ALEGRE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 236, "nombre": "MUNICIPALIDAD DE CINTRA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 237, "nombre": "MUNICIPALIDAD DE SAN ANTONIO DE LITIN", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 238, "nombre": "MUNICIPALIDAD DE SAN MARCOS SUD", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 239, "nombre": "MUNICIPALIDAD DE LA LAGUNA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 240, "nombre": "MUNICIPALIDAD DE ETRURIA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 241, "nombre": "MUNICIPALIDAD DE CHAZON", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 242, "nombre": "MUNICIPALIDAD DE PASCANAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 243, "nombre": "MUNICIPALIDAD DE LABORDE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 244, "nombre": "MUNICIPALIDAD DE WENCESLAO ESCALANTE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 245, "nombre": "MUNICIPALIDAD DE ISLA VERDE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 246, "nombre": "MUNICIPALIDAD DE GRAL BALDISSERA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 247, "nombre": "MUNICIPALIDAD DE COLONIA ITALIANA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 248, "nombre": "MUNICIPALIDAD DE CAMILO ALDAO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 249, "nombre": "MUNICIPALIDAD DE INRIVILLE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 250, "nombre": "MUNICIPALIDAD DE SALADILLO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 251, "nombre": "MUNICIPALIDAD DE JUSTINIANO POSSE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 252, "nombre": "MUNICIPALIDAD DE IDIAZABAL", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 253, "nombre": "MUNICIPALIDAD DE SANTA EUFEMIA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 254, "nombre": "MUNICIPALIDAD DE LA CARLOTA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 255, "nombre": "MUNICIPALIDAD DE BENJAMIN GOULD", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 256, "nombre": "MUNICIPALIDAD DE ALEJO LEDESMA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 257, "nombre": "MUNICIPALIDAD DE ARIAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 258, "nombre": "MUNICIPALIDAD DE CAVANAGH", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 259, "nombre": "MUNICIPALIDAD DE GUATIMOZIN", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 260, "nombre": "MUNICIPALIDAD DE LOS CISNES", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 261, "nombre": "MUNICIPALIDAD DE SUCO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 262, "nombre": "MUNICIPALIDAD DE ACHIRAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 263, "nombre": "MUNICIPALIDAD DE CHAJAN", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 264, "nombre": "MUNICIPALIDAD DE BULNES", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 265, "nombre": "MUNICIPALIDAD DE TOSQUITA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 266, "nombre": "MUNICIPALIDAD DE RIO BAMBA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 267, "nombre": "MUNICIPALIDAD DE MALENA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 268, "nombre": "MUNICIPALIDAD DE ADELIA MARIA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 269, "nombre": "MUNICIPALIDAD DE HUANCHILLA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 270, "nombre": "MUNICIPALIDAD DE VILLA ROSSI", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 271, "nombre": "MUNICIPALIDAD DE ROSALES", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 272, "nombre": "MUNICIPALIDAD DE LEGUIZAMON", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 273, "nombre": "MUNICIPALIDAD DE VIAMONTE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 274, "nombre": "MUNICIPALIDAD DE COLONIA BISMARCK", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 275, "nombre": "MUNICIPALIDAD DE MELO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 276, "nombre": "MUNICIPALIDAD DE SERRANO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 277, "nombre": "MUNICIPALIDAD DE ONAGOITY", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 278, "nombre": "MUNICIPALIDAD DE ITALO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 279, "nombre": "MUNICIPALIDAD DE PINCEN", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 280, "nombre": "MUNICIPALIDAD DE DEL CAMPILLO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 281, "nombre": "MUNICIPALIDAD DE NICOLAS BRUZZONE", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 282, "nombre": "MUNICIPALIDAD DE JOVITA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 283, "nombre": "MUNICIPALIDAD DE AMBUL", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 284, "nombre": "MUNICIPALIDAD DE SAN CARLOS MINAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 285, "nombre": "MUNICIPALIDAD DE LAS HIGUERA", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 286, "nombre": "MUNICIPALIDAD DE SAN JOSE DE LAS SALINAS", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 287, "nombre": "MUNICIPALIDAD DE VILLA DE MARIA DE RIO SECO", "meses": {}, "seguimiento": "", "contacto": {}}, {"id": 288, "nombre": "FARMACIA AROSSA (VILLA DEL ROSARIO)", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-05", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-18", "compra": "2026-02-19", "observaciones": null}, "MARZO": {"cotizacion": "2026-03-05", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-29", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-27", "compra": "2026-05-28", "observaciones": "2DA COTIZACION 15 Y 27"}}, "seguimiento": "", "contacto": {}}, {"id": 289, "nombre": "PELLICIONI OMAR ALBERTO - (CECIEP - NVA. CBA)", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-11-13", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-22", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 290, "nombre": "RUHLEMANN NATALIA GUADALUPE - (CEMI - UNQUILLO)", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-01", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-22", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-16", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 291, "nombre": "CLINICA PRIVADA SAN ANTONIO  (COSQUIN)", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-10-30", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 292, "nombre": "CEM CENTRAL DE EMERGENCIAS MEDICAS S.A. - LA FALDA", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-11", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-13", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 293, "nombre": "PERDURAN SRL - (GERIATRICO CAMIN - COSQUIN)", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-11-17", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-05", "compra": "2026-01-05", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-02", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-17", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 294, "nombre": "C Y J SERRANO SOCIEDAD DE RESPONSABILIDAD LIMITADA  - (EPAR  - VILLA BUSTOS)", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-03", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": null, "compra": "2026-01-13", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-12", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 295, "nombre": "SALVUS CENTRO MEDICO PRIVADO -  (MENDIOLAZA)", "meses": {"DICIEMBRE": {"cotizacion": "2025-10-22", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 296, "nombre": "VIDA SEM (RIO SEGUNDO)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-24", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-02", "observaciones": null}, "MAYO": {"cotizacion": "2026-05-29", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 297, "nombre": "RESIDENCIAL LA MANSION - (RIO CEBALLOS)", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-05", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 298, "nombre": "GODOY CARLOS ALBERTO - (RES. GERIATRICA LUZ DE BELEN - RIO CEBALLOS)", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-11-07", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-22", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 299, "nombre": "CEC (RIO CEBALLOS)", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-10", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 300, "nombre": "OMED - (SALSIPUEDES)", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-14", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": "2026-02-27", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": null, "compra": "2026-03-02", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-11", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 301, "nombre": "HOGAR VICTORIA (LA FALDA)", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-18", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 302, "nombre": "CLINICA SAN ISIDRO  (JESUS MARIA)", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-27", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 303, "nombre": "CLINICA DR. BULCIO  (JESUS MARIA)", "meses": {"DICIEMBRE": {"cotizacion": "2025-11-28", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 304, "nombre": "NOZZI NESTOR ARMANDO - (VETERINARIA EL PEON  - LA CUMBRE)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-09", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-17", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 305, "nombre": "CLINICA JESUS MARIA", "meses": {"DICIEMBRE": {"cotizacion": "2025-12-16", "compra": null, "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 306, "nombre": "SERVICIO INTEGRAL (RESIDENCIA GERIATRICA SAN JAVIER - RIO CEBALLOS)", "meses": {"DICIEMBRE": {"cotizacion": null, "compra": "2025-12-01", "observaciones": null}, "ENERO": {"cotizacion": "2026-01-21", "compra": "2026-01-30", "observaciones": null}, "FEBRERO": {"cotizacion": null, "compra": "2026-02-27", "observaciones": null}, "ABRIL": {"cotizacion": null, "compra": "2026-04-28", "observaciones": null}, "MAYO": {"cotizacion": null, "compra": "2026-05-22", "observaciones": "2DA COMPRA DEL MES (20Y 22)"}, "JUNIO": {"cotizacion": null, "compra": "2026-06-02", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 307, "nombre": "AR EMERGENCIAS  (BIALET MASSE)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "MARZO": {"cotizacion": "2026-03-02", "compra": "2026-03-02", "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 308, "nombre": "RESIDENCIA SAN JOAQUIN (LA FALDA)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 309, "nombre": "RESIDENCIA GERIATRICA PRIV. LOS MIMBRES (LA CUMBRE)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 310, "nombre": "RESIDENCIA GERIATRICA LA MORADA DEL VALLE (VALLE HERMOSO)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 311, "nombre": "GERIATRICO AÑOS DORADOS (ALTA GRACIA)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 312, "nombre": "RESIDENCIA GERIATRICA PORTAL DE VIDA (ALTA GRACIA)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 313, "nombre": "CENTRO MEDICO 9 DE JULIO (LA FALDA / LA CUMBRE)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}, "MAYO": {"cotizacion": "2026-05-29", "compra": null, "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 314, "nombre": "VETERINARIA MUNDO ZOO (DESPEÑADEROS)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 315, "nombre": "VETERINARIA ZOOVIDA (ANISACATE)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 316, "nombre": "VETERINARIA MANBIS (ONCATIVO)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 317, "nombre": "VETERINARIA LICEO (CBA CAPITAL)", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 318, "nombre": "SANATORIO CORDOBA", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 319, "nombre": "SANATORIO ALTA GRACIA", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {"persona": "", "mail": "03547-421209", "tel": "", "direccion": "Carignani 180"}}, {"id": 320, "nombre": "CLINICA CASTILLO MORALES", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 321, "nombre": "CLINICA PRIVADA DEL SOL S.A", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 322, "nombre": "ACONCAGUA SANATORIO PRIVADO    /// BIONEXO ///", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 323, "nombre": "CLINICA PRIVADA SAINT MICHEL", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 324, "nombre": "SANATORIO PRIVADO LEON S. MORRA", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 325, "nombre": "INSTITUTO MODELO DE CARDIOLOGIA PRIVADO SRL    /// BIONEXO ///", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 326, "nombre": "CENTRO PRIVADO DE CIRUGIA Y CLINICA ESTETICA", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 327, "nombre": "SANATORIO FRANCES", "meses": {"ENERO": {"cotizacion": "2026-01-13", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 328, "nombre": "CLINICA UNIVERSITARIA REINA FABIOLA", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 329, "nombre": "SANATORIO DEL SALVADOR PRIVADO S.A.", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 330, "nombre": "HOSPITAL ITALIANO-", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 331, "nombre": "SANATORIO DE MAYO", "meses": {"ENERO": {"cotizacion": "2026-01-21", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 332, "nombre": "MUNICIPALIDAD VILLA DEL SOTO", "meses": {"MAYO": {"cotizacion": "2026-05-11", "compra": null, "observaciones": null}, "JUNIO": {"cotizacion": "2026-06-03", "compra": null, "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 333, "nombre": "MUNICIPALIDAD ESTACION GENERAL PAZ", "meses": {"MAYO": {"cotizacion": "2026-05-19", "compra": null, "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 334, "nombre": "AMPARAR SRL", "meses": {"MAYO": {"cotizacion": "2026-05-20", "compra": null, "observaciones": null}}, "seguimiento": "Volver a contactar", "contacto": {}}, {"id": 335, "nombre": "HEMOCOR", "meses": {"MAYO": {"cotizacion": "2026-05-27", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}, {"id": 336, "nombre": "CLINICA CEATIN", "meses": {"MAYO": {"cotizacion": "2026-05-29", "compra": null, "observaciones": null}}, "seguimiento": "", "contacto": {}}]
+;
+
+// =============================================
+// APP STATE
+// =============================================
+const TODAY = new Date();
+const MONTHS_ORDER = ['DICIEMBRE','ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO'];
+const MONTH_LABELS = {DICIEMBRE:'Dic',ENERO:'Ene',FEBRERO:'Feb',MARZO:'Mar',ABRIL:'Abr',MAYO:'May',JUNIO:'Jun'};
+let currentFilter = null;
+
+// =============================================
+// HELPERS
+// =============================================
+function daysDiff(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return Math.floor((TODAY - d) / 86400000);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('es-AR', {day:'2-digit',month:'2-digit',year:'2-digit'});
+}
+
+function getLastEntry(meses) {
+  let lastCotiz = null, lastCompra = null, lastCotizDate = null, lastCompraDate = null;
+  for (const m of MONTHS_ORDER) {
+    if (meses[m]) {
+      if (meses[m].cotizacion) { lastCotiz = meses[m].cotizacion; lastCotizDate = m; }
+      if (meses[m].compra) { lastCompra = meses[m].compra; lastCompraDate = m; }
+    }
+  }
+  return { lastCotiz, lastCompra, lastCotizDate, lastCompraDate };
+}
+
+function getClienteStatus(entry) {
+  const { lastCotiz, lastCompra } = getLastEntry(entry.meses);
+  // Current month = JUNIO or most recent
+  const latestMonth = MONTHS_ORDER.slice().reverse().find(m => entry.meses[m]);
+  if (!latestMonth) return 'sin-actividad';
+  const mes = entry.meses[latestMonth];
+  if (mes.compra) return 'compro';
+  if (mes.cotizacion) return 'cotizo-sin-comprar';
+  if (lastCompra) return 'compro';
+  if (lastCotiz) return 'cotizo-sin-comprar';
+  return 'sin-actividad';
+}
+
+function getTipo(nombre) {
+  const n = nombre.toLowerCase();
+  if (n.includes('municipalidad')) return 'municipalidad';
+  if (n.includes('comuna')) return 'comuna';
+  if (n.includes('hospital')) return 'hospital';
+  return 'otro';
+}
+
+function isUrgente(entry, dias = 3) {
+  const { lastCotiz, lastCompra } = getLastEntry(entry.meses);
+  if (!lastCotiz) return false;
+  const cotizDays = daysDiff(lastCotiz);
+  if (cotizDays === null || cotizDays < dias) return false;
+  // If compra is after or same day as cotiz → not urgent
+  if (lastCompra && new Date(lastCompra) >= new Date(lastCotiz)) return false;
+  return true;
+}
+
+function getBadge(status) {
+  const map = {
+    'compro': '<span class="badge-ok text-xs font-semibold px-2 py-0.5 rounded-full">Compró ✓</span>',
+    'cotizo-sin-comprar': '<span class="badge-pendiente text-xs font-semibold px-2 py-0.5 rounded-full">Cotizó · Pendiente</span>',
+    'sin-actividad': '<span class="badge-sin-actividad text-xs font-semibold px-2 py-0.5 rounded-full">Sin actividad</span>',
+    'urgente': '<span class="badge-urgente text-xs font-semibold px-2 py-0.5 rounded-full">🚨 Urgente</span>',
+  };
+  return map[status] || map['sin-actividad'];
+}
+
+// =============================================
+// COMPUTED STATS
+// =============================================
+function computeStats() {
+  const active = RAW_DATA.filter(d => Object.keys(d.meses).length > 0);
+  const total = RAW_DATA.length;
+  
+  // Latest month
+  const latestMonth = 'JUNIO';
+  const compraron = active.filter(d => d.meses[latestMonth]?.compra || 
+    (d.meses['MAYO']?.compra && !d.meses[latestMonth])).length;
+  const compraron_j = RAW_DATA.filter(d => d.meses['JUNIO']?.compra).length;
+  const cotiz_j = RAW_DATA.filter(d => d.meses['JUNIO']?.cotizacion).length;
+  const pendientes = RAW_DATA.filter(d => {
+    const s = getClienteStatus(d);
+    return s === 'cotizo-sin-comprar';
+  }).length;
+  const urgentes = RAW_DATA.filter(d => isUrgente(d, 3)).length;
+  const volverContactar = RAW_DATA.filter(d => d.seguimiento && d.seguimiento.toLowerCase().includes('volver')).length;
+  
+  return { total, active: active.length, compraron: compraron_j, pendientes, urgentes, volverContactar, cotiz_j };
+}
+
+// =============================================
+// CHARTS
+// =============================================
+let charts = {};
+
+function initCharts() {
+  const months = MONTHS_ORDER;
+  const cotizData = months.map(m => RAW_DATA.filter(d => d.meses[m]?.cotizacion).length);
+  const compraData = months.map(m => RAW_DATA.filter(d => d.meses[m]?.compra).length);
+  const labels = months.map(m => MONTH_LABELS[m]);
+
+  Chart.defaults.color = '#94a3b8';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+  
+  const baseFont = { family: 'Inter', size: 12 };
+
+  // BAR
+  if (charts.bar) charts.bar.destroy();
+  charts.bar = new Chart(document.getElementById('chart-bar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Cotizaciones',
+          data: cotizData,
+          backgroundColor: 'rgba(249,115,22,0.7)',
+          borderColor: '#f97316',
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+        {
+          label: 'Compras',
+          data: compraData,
+          backgroundColor: 'rgba(34,197,94,0.6)',
+          borderColor: '#22c55e',
+          borderWidth: 1,
+          borderRadius: 4,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { font: baseFont, boxWidth: 12, padding: 16 } },
+        tooltip: { backgroundColor: 'rgba(10,22,40,0.95)', borderColor: 'rgba(249,115,22,0.3)', borderWidth: 1, titleFont: { ...baseFont, weight: '600' }, bodyFont: baseFont, padding: 12 }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { font: baseFont } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { font: baseFont } }
+      }
+    }
+  });
+
+  // LINE - conversion rate
+  const convData = months.map((m, i) => {
+    const c = cotizData[i]; const v = compraData[i];
+    return c > 0 ? Math.round((v/c)*100) : 0;
+  });
+  if (charts.line) charts.line.destroy();
+  charts.line = new Chart(document.getElementById('chart-line'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Conversión %',
+        data: convData,
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249,115,22,0.08)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#f97316',
+        pointRadius: 5,
+        pointHoverRadius: 8,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { font: baseFont, boxWidth: 12 } },
+        tooltip: { backgroundColor: 'rgba(10,22,40,0.95)', borderColor: 'rgba(249,115,22,0.3)', borderWidth: 1, titleFont: { ...baseFont, weight: '600' }, bodyFont: baseFont, padding: 12,
+          callbacks: { label: ctx => ` ${ctx.raw}% de conversión` }
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { font: baseFont } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { font: baseFont, callback: v => v+'%' }, min: 0, max: 100 }
+      }
+    }
+  });
+
+  // DONUT - current status
+  const comp = RAW_DATA.filter(d => getClienteStatus(d) === 'compro').length;
+  const pend = RAW_DATA.filter(d => getClienteStatus(d) === 'cotizo-sin-comprar').length;
+  const sinact = RAW_DATA.filter(d => getClienteStatus(d) === 'sin-actividad').length;
+  
+  if (charts.donut) charts.donut.destroy();
+  charts.donut = new Chart(document.getElementById('chart-donut'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Compraron', 'Pend. Respuesta', 'Sin actividad'],
+      datasets: [{
+        data: [comp, pend, sinact],
+        backgroundColor: ['rgba(34,197,94,0.8)', 'rgba(234,179,8,0.8)', 'rgba(100,116,139,0.5)'],
+        borderColor: ['#22c55e', '#eab308', '#475569'],
+        borderWidth: 2,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: 'rgba(10,22,40,0.95)', borderColor: 'rgba(249,115,22,0.3)', borderWidth: 1, titleFont: { ...baseFont, weight: '600' }, bodyFont: baseFont, padding: 12 }
+      }
+    }
+  });
+
+  // Donut legend
+  const legendEl = document.getElementById('donut-legend');
+  const total = comp + pend + sinact;
+  legendEl.innerHTML = [
+    { label: 'Compraron', value: comp, color: '#22c55e' },
+    { label: 'Pend. Respuesta', value: pend, color: '#eab308' },
+    { label: 'Sin actividad', value: sinact, color: '#475569' },
+  ].map(item => `
+    <div class="flex items-center justify-between text-xs">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full" style="background:${item.color}"></span>
+        <span class="text-gray-300">${item.label}</span>
+      </div>
+      <span class="font-semibold text-white">${item.value} <span class="text-gray-500">(${total>0?Math.round(item.value/total*100):0}%)</span></span>
+    </div>
+  `).join('');
+}
+
+// =============================================
+// RENDER FUNCTIONS
+// =============================================
+
+function renderKPIs() {
+  const s = computeStats();
+  document.getElementById('kpi-total').textContent = s.total;
+  document.getElementById('kpi-compraron').textContent = s.compraron;
+  document.getElementById('kpi-pendiente').textContent = s.pendientes;
+  document.getElementById('kpi-urgentes').textContent = s.urgentes;
+  document.getElementById('urgentes-count').textContent = s.urgentes + ' urgentes';
+  document.getElementById('badge-urgentes').textContent = s.urgentes;
+  
+  const pct = s.active > 0 ? Math.round(s.compraron / s.active * 100) : 0;
+  document.getElementById('kpi-compraron-bar').style.width = pct + '%';
+  document.getElementById('kpi-compraron-pct').textContent = pct + '% del total activo';
+  
+  const pctP = s.active > 0 ? Math.round(s.pendientes / s.active * 100) : 0;
+  document.getElementById('kpi-pendiente-bar').style.width = pctP + '%';
+  document.getElementById('kpi-pendiente-pct').textContent = pctP + '% del total activo';
+}
+
+function renderUrgentesPreview() {
+  const urgentes = RAW_DATA.filter(d => isUrgente(d, 3))
+    .map(d => { const {lastCotiz} = getLastEntry(d.meses); return {...d, cotizDate: lastCotiz, dias: daysDiff(lastCotiz)}; })
+    .sort((a,b) => new Date(b.cotizDate) - new Date(a.cotizDate))
+    .slice(0, 8);
+  
+  const el = document.getElementById('urgentes-preview');
+  if (!urgentes.length) { el.innerHTML = '<p class="text-gray-500 text-sm">✅ No hay cotizaciones urgentes</p>'; return; }
+  
+  el.innerHTML = urgentes.map(d => `
+    <div class="flex items-center justify-between bg-red-500/5 border border-red-500/15 rounded-lg px-3 py-2.5 cursor-pointer hover:border-red-400/30 transition-all" onclick="openModal(${d.id})">
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-medium text-white truncate">${d.nombre}</div>
+        <div class="text-xs text-gray-400 mt-0.5">Cotizó: ${formatDate(d.cotizDate)}</div>
+      </div>
+      <div class="ml-3 text-right">
+        <div class="text-red-400 font-bold text-sm">${d.dias}d</div>
+        <div class="text-gray-500 text-xs">sin resp.</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderSeguimiento() {
+  const list = RAW_DATA.filter(d => d.seguimiento && d.seguimiento.toLowerCase().includes('volver'));
+  document.getElementById('seg-count').textContent = list.length + ' clientes';
+  document.getElementById('seg-list').innerHTML = list.map(d => {
+    const {lastCotiz, lastCompra} = getLastEntry(d.meses);
+    const tipo = getTipo(d.nombre);
+    const tipoColor = { municipalidad:'text-blue-300', comuna:'text-purple-300', hospital:'text-green-300', otro:'text-gray-300' };
+    return `
+      <div class="bg-orange-500/5 border border-orange-500/20 rounded-xl p-3 cursor-pointer hover:border-orange-400/40 transition-all" onclick="openModal(${d.id})">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-white leading-tight truncate">${d.nombre}</div>
+            <div class="text-xs ${tipoColor[tipo] || 'text-gray-400'} mt-0.5 capitalize">${tipo}</div>
+          </div>
+          <span class="badge-pendiente text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">↩ Contactar</span>
+        </div>
+        <div class="flex gap-3 mt-2 text-xs text-gray-400">
+          <span>📋 Cot: ${formatDate(lastCotiz)}</span>
+          <span>🛒 Comp: ${formatDate(lastCompra)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderUrgentes() {
+  const dias = parseInt(document.getElementById('filter-urgentes-dias').value) || 3;
+  const urgentes = RAW_DATA.filter(d => isUrgente(d, dias))
+    .map(d => { const {lastCotiz, lastCompra} = getLastEntry(d.meses); return {...d, cotizDate: lastCotiz, compraDate: lastCompra, dias: daysDiff(lastCotiz)}; })
+    .sort((a,b) => b.dias - a.dias);
+  
+  const tbody = document.getElementById('urgentes-tbody');
+  if (!urgentes.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-gray-500">✅ No hay cotizaciones urgentes para este filtro</td></tr>`;
+    return;
+  }
+  
+  tbody.innerHTML = urgentes.map(d => {
+    const urgColor = d.dias >= 7 ? 'text-red-400' : d.dias >= 5 ? 'text-orange-400' : 'text-yellow-400';
+    const tel = d.contacto?.tel || '';
+    const wspNum = tel.replace(/[^0-9]/g,'');
+    const wspLink = wspNum ? `<a href="https://wa.me/54${wspNum}" target="_blank" class="wsp-btn">💬 WSP</a>` : '';
+    return `
+      <tr class="tbl-row cursor-pointer" onclick="openModal(${d.id})">
+        <td class="px-4 py-3">
+          <div class="font-medium text-white text-sm">${d.nombre}</div>
+          <div class="text-xs text-gray-500 mt-0.5 capitalize">${getTipo(d.nombre)}</div>
+        </td>
+        <td class="px-4 py-3 text-sm text-gray-300">${formatDate(d.cotizDate)}</td>
+        <td class="px-4 py-3"><span class="font-bold ${urgColor} text-base" style="font-family:'Barlow Condensed',sans-serif;">${d.dias} días</span></td>
+        <td class="px-4 py-3">${d.dias >= 7 ? getBadge('urgente') : getBadge('cotizo-sin-comprar')}</td>
+        <td class="px-4 py-3">
+          <div class="flex items-center gap-2">
+            ${wspLink}
+            <button onclick="event.stopPropagation();openModal(${d.id})" class="text-xs text-gray-400 hover:text-orange-400 transition-colors">Ver detalle →</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderClientes() {
+  const search = (document.getElementById('search-clientes')?.value || document.getElementById('search-global')?.value || '').toLowerCase().trim();
+  const mes = document.getElementById('filter-mes')?.value || '';
+  const estado = document.getElementById('filter-estado')?.value || currentFilter || '';
+  const tipo = document.getElementById('filter-tipo')?.value || '';
+  
+  let list = RAW_DATA;
+  
+  if (search) list = list.filter(d => d.nombre.toLowerCase().includes(search));
+  if (tipo) list = list.filter(d => getTipo(d.nombre) === tipo);
+  if (mes) list = list.filter(d => d.meses[mes]);
+  
+  if (estado === 'compro') list = list.filter(d => getClienteStatus(d) === 'compro');
+  else if (estado === 'cotizo-sin-comprar') list = list.filter(d => getClienteStatus(d) === 'cotizo-sin-comprar');
+  else if (estado === 'sin-actividad') list = list.filter(d => getClienteStatus(d) === 'sin-actividad');
+  else if (estado === 'volver-contactar' || estado === 'compraron' || estado === 'no-compraron') {
+    if (estado === 'volver-contactar') list = list.filter(d => d.seguimiento?.toLowerCase().includes('volver'));
+    else if (estado === 'compraron') list = list.filter(d => getClienteStatus(d) === 'compro');
+    else if (estado === 'no-compraron') list = list.filter(d => getClienteStatus(d) !== 'compro');
+  }
+  
+  document.getElementById('filter-count').textContent = list.length + ' clientes';
+  
+  const tbody = document.getElementById('clientes-tbody');
+  const empty = document.getElementById('clientes-empty');
+  
+  if (!list.length) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  
+  // Paginate to 200 max for performance
+  const show = list.slice(0, 200);
+  
+  tbody.innerHTML = show.map(d => {
+    const {lastCotiz, lastCompra} = getLastEntry(d.meses);
+    const status = isUrgente(d, 3) ? 'urgente' : getClienteStatus(d);
+    const seg = d.seguimiento && d.seguimiento.toLowerCase().includes('volver') ? 
+      '<span class="text-orange-400 text-xs">↩ Contactar</span>' : 
+      '<span class="text-gray-600 text-xs">—</span>';
+    
+    return `
+      <tr class="tbl-row cursor-pointer" onclick="openModal(${d.id})">
+        <td class="px-4 py-3">
+          <div class="font-medium text-white text-sm">${d.nombre}</div>
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-400 capitalize">${getTipo(d.nombre)}</td>
+        <td class="px-4 py-3 text-sm text-gray-300">${formatDate(lastCotiz)}</td>
+        <td class="px-4 py-3 text-sm text-gray-300">${formatDate(lastCompra)}</td>
+        <td class="px-4 py-3">${getBadge(status)}</td>
+        <td class="px-4 py-3">${seg}</td>
+        <td class="px-4 py-3">
+          <button class="text-xs text-gray-500 hover:text-orange-400 transition-colors">Ver →</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+  
+  if (list.length > 200) {
+    tbody.innerHTML += `<tr><td colspan="7" class="text-center py-4 text-gray-500 text-xs">Mostrando 200 de ${list.length} resultados. Usá los filtros para acotar.</td></tr>`;
+  }
+}
+
+function renderVisitas() {
+  // Use the route data from sheets 26 y 27 de Mayo, 28 de Mayo, 01 de junio, etc.
+  const routeData = [
+    { ruta: 'Ruta E53 — 26/27 Mayo', lugares: [
+      { nombre: 'DISPENSARIO MUNICIPAL BARRIO PORTON DE PIEDRA', dir: 'Av Eva Perón esq. San Jerónimo, Saldán', persona: 'Natalia Muñoz (Compras)', tel: '3543494100', obs: 'Fue directo a la Muni. Contactado 28/05' },
+      { nombre: 'CENTRO DE SALUD MUNICIPAL DE MENDIOLAZA', dir: 'Av. Malvinas 285, Mendiolaza', persona: 'Lautaro', tel: '3543434801', obs: 'Al lado de la muni. No estaba encargado de compras. Contactado 28/05' },
+      { nombre: 'RIO CEBALLOS — Centro Municipal', dir: 'Río Ceballos', persona: 'Valentín Luna', tel: '3543204798', obs: 'Las compras las hace la Muni. Pasarán número de encargado. Contactado 28/05' },
+      { nombre: 'SANATORIO PRIVADO DEL INTERIOR SRL', dir: 'Figueroa Alcorta 37, Río Ceballos', persona: 'Eugenio Álvarez', tel: '3543451634', obs: 'Encargado de compras de 17:30 en adelante, lunes a viernes.' },
+      { nombre: 'HUMANAMENTE CENTRO TERAPEUTICO', dir: 'Las Rosas 143, Mendiolaza', tel: '351153788378', obs: '' },
+    ]},
+    { ruta: 'Ruta 9 Sur — 28 Mayo', lugares: [
+      { nombre: 'TOLEDO — Diego Baltamar (Compras)', dir: 'Toledo', persona: 'Diego Baltamar', tel: '3517910698', obs: 'José Marín, encargado de compras, no lo atendió.' },
+      { nombre: 'RIO SEGUNDO — Guillermo Jofre', dir: 'Río Segundo', persona: 'Guillermo Jofre', tel: '3572543930', obs: 'Quiere comprar productos de odontología también.' },
+      { nombre: 'CENTRO NEFROLOGICO INTEGRAL PRIVADO', dir: 'Corrientes 744, Río Segundo', tel: '3572423531', obs: 'Visitó el 02/06, abren por la mañana.' },
+      { nombre: 'CLINICA PRIVADA SARMIENTO', dir: 'Sarmiento 786, Río Segundo', tel: '3572421270', obs: 'Le compran todo a Santini. Mail: clinicapsarmiento@gmail.com' },
+      { nombre: 'HOSPITAL MUNICIPAL VIRGEN DE LOURDES', dir: 'Julio A. Roca 1231, Río Segundo', tel: '3572423498', obs: '' },
+      { nombre: 'CENTRO DE SALUD MUNICIPAL MANFREDI', dir: '8 de Septiembre 107, Manfredi', persona: 'Kela (Compras)', tel: '3572580805', obs: 'Compraba en Elemento, próxima compra acá. LLAMAR DESDE CEL DE SEBAS.' },
+    ]},
+    { ruta: 'Ruta 1 de Junio', lugares: [
+      { nombre: 'MUNICIPALIDAD DE SEBASTIAN EL CANO', dir: 'Sebastián El Cano', persona: 'Andrea Molina', tel: '3513434126', obs: '' },
+      { nombre: 'MUNICIPALIDAD DE BIALET MASSE', dir: 'Ruta 38, Bialet Massé', tel: '3541448188', obs: '' },
+      { nombre: 'MUNICIPALIDAD DE VILLA DE TULUMBA', dir: 'Villa de Tulumba', persona: 'Eliana Bustamante', tel: '3521433741', obs: '' },
+      { nombre: 'SAN JOSE DE LA DORMIDA — DANOTTI', dir: 'San José de la Dormida', persona: 'Evangelina/Natalia', tel: '3521537983', obs: 'Farmacia DANOTTI, 4 sucursales en Jesús María, una en Totoral, una en San José.' },
+      { nombre: 'HOSPITAL VECINAL SAN JOSE DE LA DORMIDA', dir: 'Hipólito Yrigoyen 466', tel: '3521497921', obs: '' },
+    ]},
+    { ruta: 'Ruta 3 y 4 de Junio', lugares: [
+      { nombre: 'JAMES CRAIK — Municipalidad', persona: 'Karina', tel: '3534097756', obs: 'Dice que somos los más caros, por eso no compró más.' },
+      { nombre: 'MUNICIPALIDAD DE TIO PUJIO', persona: 'Ana Vázquez (Compras)', tel: '3534119683', obs: '' },
+      { nombre: 'MUNICIPALIDAD DE BELL VILLE — Clínica Mayo', persona: 'Paola (Compras)', tel: '3537652441', obs: 'Compran habitualmente en Villa María. 90 días descartables.' },
+      { nombre: 'MUNICIPALIDAD DE LA CARLOTA', persona: 'Agustina', tel: '3584430945', obs: 'Ahora Clínica del Sub, absorvida por Río Cuarto. No hacen compras locales.' },
+      { nombre: 'MUNICIPALIDAD DE SANTA EUFEMIA', persona: 'Fany Boiero (Compras)', tel: '3584491002', obs: 'No dieron bola, compran en otra droguería.' },
+      { nombre: 'MUNICIPALIDAD DE MONTE MAIZ', persona: 'Carolina (Coordinadora)', tel: '3468514186', obs: 'Dijo que éramos caros.' },
+    ]},
+  ];
+  
+  // Populate filter
+  const sel = document.getElementById('filter-visita-ruta');
+  if (sel.options.length <= 1) {
+    routeData.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.ruta; opt.textContent = r.ruta;
+      sel.appendChild(opt);
+    });
+  }
+  
+  const filterRuta = sel.value;
+  const show = filterRuta ? routeData.filter(r => r.ruta === filterRuta) : routeData;
+  
+  let totalLugares = show.reduce((a,b) => a + b.lugares.length, 0);
+  document.getElementById('visita-count').textContent = totalLugares + ' lugares';
+  
+  document.getElementById('visitas-grid').innerHTML = show.map(ruta => `
+    <div class="card p-0 overflow-hidden">
+      <div class="px-4 py-3 border-b border-white/10" style="background:rgba(249,115,22,0.08);">
+        <h3 class="text-sm font-bold text-orange-300" style="font-family:'Barlow Condensed',sans-serif;">${ruta.ruta}</h3>
+        <p class="text-xs text-gray-400 mt-0.5">${ruta.lugares.length} paradas</p>
+      </div>
+      <div class="divide-y divide-white/05">
+        ${ruta.lugares.map((l,i) => {
+          const wspNum = (l.tel||'').replace(/[^0-9]/g,'');
+          const wspLink = wspNum ? `<a href="https://wa.me/54${wspNum}" target="_blank" class="wsp-btn" onclick="event.stopPropagation()">💬</a>` : '';
+          return `
+            <div class="px-4 py-3 hover:bg-white/03 transition-colors">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-600 font-mono">${String(i+1).padStart(2,'0')}.</span>
+                    <span class="text-sm font-semibold text-white leading-tight">${l.nombre}</span>
+                  </div>
+                  ${l.dir ? `<div class="text-xs text-gray-400 mt-1 ml-6">📍 ${l.dir}</div>` : ''}
+                  ${l.persona ? `<div class="text-xs text-blue-300 mt-0.5 ml-6">👤 ${l.persona}</div>` : ''}
+                  ${l.tel ? `<div class="text-xs text-gray-400 mt-0.5 ml-6">📞 ${l.tel}</div>` : ''}
+                  ${l.obs ? `<div class="text-xs text-yellow-500/80 mt-1 ml-6 italic">${l.obs}</div>` : ''}
+                </div>
+                <div>${wspLink}</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// =============================================
+// MODAL
+// =============================================
+function openModal(id) {
+  const entry = RAW_DATA.find(d => d.id === id);
+  if (!entry) return;
+  
+  document.getElementById('modal-title').textContent = entry.nombre;
+  
+  const {lastCotiz, lastCompra} = getLastEntry(entry.meses);
+  const status = isUrgente(entry, 3) ? 'urgente' : getClienteStatus(entry);
+  const diasCotiz = daysDiff(lastCotiz);
+  
+  let urgWarning = '';
+  if (isUrgente(entry, 3)) {
+    urgWarning = `<div class="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 mb-4 flex items-center gap-3">
+      <span class="text-2xl">🚨</span>
+      <div>
+        <div class="text-red-400 font-semibold text-sm">Cotización sin respuesta hace ${diasCotiz} días</div>
+        <div class="text-red-400/70 text-xs mt-0.5">Recomendado: enviar mensaje de seguimiento hoy</div>
+      </div>
+    </div>`;
+  }
+  
+  const contact = entry.contacto || {};
+  const wspNum = (contact.tel||'').replace(/[^0-9]/g,'');
+  
+  let contactHtml = '';
+  if (contact.persona || contact.tel || contact.mail || contact.direccion) {
+    contactHtml = `
+      <div class="card p-4 mb-4" style="background:rgba(255,255,255,0.03);">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Contacto</p>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          ${contact.persona ? `<div><span class="text-gray-500">👤 Persona</span><br><span class="text-white">${contact.persona}</span></div>` : ''}
+          ${contact.tel ? `<div><span class="text-gray-500">📞 Teléfono</span><br><span class="text-white">${contact.tel}</span></div>` : ''}
+          ${contact.mail ? `<div class="col-span-2"><span class="text-gray-500">✉️ Mail</span><br><span class="text-blue-300">${contact.mail}</span></div>` : ''}
+          ${contact.direccion ? `<div class="col-span-2"><span class="text-gray-500">📍 Dirección</span><br><span class="text-white">${contact.direccion}</span></div>` : ''}
+        </div>
+        ${wspNum ? `<div class="mt-3"><a href="https://wa.me/54${wspNum}?text=Hola%2C+te+contacto+de+Trade+Farma+para+hacer+seguimiento+de+la+cotización+enviada.+¿Tuvieron+oportunidad+de+revisarla%3F" target="_blank" class="wsp-btn">💬 Enviar WhatsApp</a></div>` : ''}
+      </div>
+    `;
+  }
+  
+  const mesesHtml = MONTHS_ORDER.map(m => {
+    if (!entry.meses[m]) return `<div class="month-chip chip-sin text-center"><div class="text-gray-500 font-semibold text-xs">${MONTH_LABELS[m]}</div><div class="text-gray-600 text-xs mt-1">—</div></div>`;
+    const mes = entry.meses[m];
+    return `
+      <div class="month-chip ${mes.compra ? 'chip-compra' : 'chip-cotiz'}">
+        <div class="font-bold text-xs mb-1">${MONTH_LABELS[m]}</div>
+        ${mes.cotizacion ? `<div class="text-xs"><span class="text-orange-300">📋</span> ${formatDate(mes.cotizacion)}</div>` : ''}
+        ${mes.compra ? `<div class="text-xs"><span class="text-green-400">✅</span> ${formatDate(mes.compra)}</div>` : '<div class="text-xs text-gray-500">Sin compra</div>'}
+        ${mes.observaciones ? `<div class="text-xs text-yellow-400/80 mt-1 italic">${mes.observaciones}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+  
+  document.getElementById('modal-body').innerHTML = `
+    ${urgWarning}
+    <div class="flex items-center gap-3 mb-4">
+      ${getBadge(status)}
+      ${entry.seguimiento && entry.seguimiento.toLowerCase().includes('volver') ? '<span class="badge-pendiente text-xs font-semibold px-2 py-0.5 rounded-full">↩ Volver a Contactar</span>' : ''}
+      <span class="text-gray-500 text-xs capitalize">${getTipo(entry.nombre)}</span>
+    </div>
+    ${contactHtml}
+    <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Historial mensual</p>
+    <div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(100px,1fr));">${mesesHtml}</div>
+  `;
+  
+  document.getElementById('modal-bg').style.display = 'flex';
+}
+
+function closeModal(e) {
+  if (e.target.id === 'modal-bg') document.getElementById('modal-bg').style.display = 'none';
+}
+
+// =============================================
+// NAVIGATION
+// =============================================
+function showView(view, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  
+  const titles = {
+    dashboard: { title: 'Dashboard', sub: 'Resumen general de cotizaciones y ventas' },
+    urgentes: { title: '🔔 Urgentes — Seguimiento', sub: 'Cotizaciones sin respuesta pasados los 3 días' },
+    clientes: { title: '🏛️ Todos los Clientes', sub: 'Listado completo con filtros' },
+    visitas: { title: '🗺️ Guía de Visitas', sub: 'Planificación de recorrido por rutas' },
+  };
+  const t = titles[view] || titles.dashboard;
+  document.getElementById('view-title').textContent = t.title;
+  document.getElementById('view-sub').textContent = t.sub;
+  
+  if (view === 'urgentes') renderUrgentes();
+  if (view === 'clientes') renderClientes();
+  if (view === 'visitas') renderVisitas();
+}
+
+function filterByStatus(status, el) {
+  currentFilter = status;
+  showView('clientes', el);
+  const sel = document.getElementById('filter-estado');
+  if (sel) {
+    if (status === 'compraron') sel.value = 'compro';
+    else if (status === 'no-compraron') sel.value = 'cotizo-sin-comprar';
+    else if (status === 'volver-contactar') sel.value = 'volver-contactar';
+  }
+  renderClientes();
+}
+
+function onSearch(val) {
+  // If a search is entered, go to clientes view
+  if (val.length > 0) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('view-clientes').classList.add('active');
+    document.getElementById('view-title').textContent = '🔍 Resultados de búsqueda';
+    document.getElementById('view-sub').textContent = `Buscando: "${val}"`;
+    if (document.getElementById('search-clientes'))
+      document.getElementById('search-clientes').value = val;
+    renderClientes();
+  }
+}
+
+// =============================================
+// INIT
+// =============================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Today date
+  const now = new Date();
+  document.getElementById('today-date').textContent = now.toLocaleDateString('es-AR', {day:'2-digit',month:'2-digit',year:'numeric'});
+  
+  renderKPIs();
+  initCharts();
+  renderUrgentesPreview();
+  renderSeguimiento();
+});
+// =============================================
+// IMPORTAR CSV
+// =============================================
+function importarCSV() {
+
+  const file = document.getElementById('csvFile')?.files[0];
+
+  if (!file) {
+    alert('Seleccioná un archivo CSV');
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+
+    const contenido = e.target.result;
+
+    localStorage.setItem(
+      'tradefarma_csv',
+      contenido
+    );
+
+    alert('CSV cargado correctamente');
+
+    console.log('CSV guardado');
+
+  };
+
+  reader.readAsText(file);
+
+}
+
+
+// =============================================
+// EXPORTAR PDF DE SEGUIMIENTO (MES ACTUAL)
+// =============================================
+async function generarPDFUrgentes() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+
+  // Obtener el mes y año actual para el filtro
+  const hoy = new Date();
+  const mesActual = hoy.getMonth(); // 0 = Enero, 5 = Junio, etc.
+  const anioActual = hoy.getFullYear();
+
+  pdf.setFontSize(16);
+  pdf.text('Seguimientos Pendientes - Mes Actual', 10, 15);
+  pdf.setFontSize(10);
+
+  let y = 30;
+
+  // Filtramos: que sea urgente AND que la última cotización sea del mes/año actual
+  const urgentes = RAW_DATA.filter(cliente => {
+    // 1. Validamos si es urgente por los días de brecha
+    const cumpleUrgencia = isUrgente(cliente, 3);
+    
+    // 2. Obtenemos los datos de la última entrada
+    const datos = getLastEntry(cliente.meses);
+    
+    if (cumpleUrgencia && datos && datos.lastCotiz) {
+      const fechaCotiz = new Date(datos.lastCotiz);
+      
+      // Validamos que coincida el mes y el año con el día de hoy
+      const esMesActual = fechaCotiz.getMonth() === mesActual && fechaCotiz.getFullYear() === anioActual;
+      
+      return esMesActual;
+    }
+    return false;
+  });
+
+  // Si no hay urgentes este mes, avisamos para no descargar un PDF vacío
+  if (urgentes.length === 0) {
+    alert("¡Buenas noticias! No hay seguimientos pendientes de más de 3 días para el mes actual.");
+    return;
+  }
+
+  urgentes.forEach(cliente => {
+    const datos = getLastEntry(cliente.meses);
+
+    pdf.text(cliente.nombre, 10, y);
+    pdf.text('Cotización: ' + formatDate(datos.lastCotiz), 80, y);
+
+    y += 8;
+
+    if (y > 270) {
+      pdf.addPage();
+      y = 20;
+    }
+  });
+
+  pdf.save(
+    'Seguimientos_Mes_Actual_' +
+    hoy.toLocaleDateString('es-AR').replace(/\//g, '-') +
+    '.pdf'
+  );
+}
+function importarExcel() {
+  const input = document.getElementById('excelFile');
+  
+  if (!input.files || input.files.length === 0) {
+    alert("Por favor, seleccioná un archivo Excel primero.");
+    return;
+  }
+
+  const archivo = input.files[0];
+  const reader = new FileReader();
+
+  // Esto se ejecuta cuando el navegador termina de leer el archivo binario
+  reader.onload = function(e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+
+    // Tomamos la primera hoja del Excel
+    const nombreHoja = workbook.SheetNames[0];
+    const hoja = workbook.Sheets[nombreHoja];
+
+    // Convertimos las filas y columnas en un formato JSON (array de objetos)
+    const datosFormateados = XLSX.utils.sheet_to_json(hoja);
+
+    console.log("Datos importados con éxito:", datosFormateados);
+    
+    // ============================================================
+    // ¡AQUÍ VA TU MAGIA! 
+    // Tenés que mapear estos datos para que coincidan con tu RAW_DATA
+    // y luego llamar a tus funciones de renderizado, por ejemplo:
+    // renderDashboard(datosFormateados); 
+    // ============================================================
+    
+    alert("¡Excel cargado con éxito en el Dashboard!");
+  };
+
+  // Leer el archivo como un array de almacenamiento binario
+  reader.readAsArrayBuffer(archivo);
+}
+
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Librería imprescindible para leer archivos Excel en el navegador -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</body>
+</html>
