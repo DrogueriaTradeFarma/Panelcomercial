@@ -455,16 +455,29 @@ function getTipo(nombre) {
   return 'otro';
 }
 
-function isUrgente(entry, dias = 3) {
-  const { lastCotiz, lastCompra } = getLastEntry(entry.meses);
-  if (!lastCotiz) return false;
-  const cotizDays = daysDiff(lastCotiz);
-  if (cotizDays === null || cotizDays < dias) return false;
-  // If compra is after or same day as cotiz → not urgent
-  if (lastCompra && new Date(lastCompra) >= new Date(lastCotiz)) return false;
-  return true;
-}
+function isUrgente(cliente, diasLimite = 3) {
+  const datos = getLastEntry(cliente.meses);
+  if (!datos || !datos.lastCotiz) return false;
 
+  const hoy = new Date();
+  const fechaCotiz = new Date(datos.lastCotiz);
+  
+  // 1. Si hay una fecha de última compra, la evaluamos
+  if (datos.lastCompra) {
+    const fechaCompra = new Date(datos.lastCompra);
+    
+    // SI LA COMPRA ES IGUAL O MÁS RECIENTE QUE LA COTIZACIÓN -> ¡NO ES URGENTE!
+    if (fechaCompra >= fechaCotiz) {
+      return false; 
+    }
+  }
+
+  // 2. Si no compró o la cotización es más nueva que la última compra, calculamos los días
+  const diferenciaTiempo = hoy - fechaCotiz;
+  const diferenciaDias = Math.floor(diferenciaTiempo / (1000 * 60 * 60 * 24));
+
+  return diferenciaDias > diasLimite;
+}
 function getBadge(status) {
   const map = {
     'compro': '<span class="badge-ok text-xs font-semibold px-2 py-0.5 rounded-full">Compró ✓</span>',
